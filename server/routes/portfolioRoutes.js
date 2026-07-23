@@ -6,11 +6,13 @@ const {
   getPortfolioItemById,
   updatePortfolioItem,
   deletePortfolioItem,
+  getPortfolioFile,
   upload,
 } = require('../controllers/portfolioController');
 const { validatePortfolioItem, validateObjectId, handleValidationErrors } = require('../validators/portfolioValidator');
 
 router.get('/', getPortfolioItems);
+router.get('/files/:id', getPortfolioFile);
 router.get('/:id', validateObjectId, handleValidationErrors, getPortfolioItemById);
 router.post('/', upload.single('image'), validatePortfolioItem, handleValidationErrors, createPortfolioItem);
 router.put('/:id', upload.single('image'), validateObjectId, validatePortfolioItem, handleValidationErrors, updatePortfolioItem);

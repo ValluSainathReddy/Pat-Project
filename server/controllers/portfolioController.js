@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
+const { GridFSBucket } = require('mongodb');
 const PortfolioItem = require('../models/PortfolioItem');
 const asyncHandler = require('../middlewares/asyncHandler');
-const { optimizeImage, removeFile } = require('../services/mediaService');
+const { optimizeImage, uploadImageToGridFS, deleteImageFromGridFS, removeFile } = require('../services/mediaService');
 const upload = require('../config/upload');
 
 const createPortfolioItem = asyncHandler(async (req, res) => {
@@ -16,7 +18,14 @@ const createPortfolioItem = asyncHandler(async (req, res) => {
 
   if (req.file) {
     const optimizedPath = await optimizeImage(req.file.path);
-    payload.image = optimizedPath.replace(/\\/g, '/');
+    const fileId = await uploadImageToGridFS(optimizedPath, req.file.originalname);
+    payload.image = {
+      type: 'gridfs',
+      fileId: fileId.toString(),
+      filename: req.file.originalname,
+      url: `/api/portfolio-items/files/${fileId.toString()}`,
+    };
+    removeFile(optimizedPath);
     removeFile(req.file.path);
   }
 
@@ -75,8 +84,17 @@ const updatePortfolioItem = asyncHandler(async (req, res) => {
 
   if (req.file) {
     const optimizedPath = await optimizeImage(req.file.path);
-    if (item.image) removeFile(item.image);
-    item.image = optimizedPath.replace(/\\/g, '/');
+    if (item.image?.fileId) {
+      await deleteImageFromGridFS(item.image.fileId);
+    }
+    const fileId = await uploadImageToGridFS(optimizedPath, req.file.originalname);
+    item.image = {
+      type: 'gridfs',
+      fileId: fileId.toString(),
+      filename: req.file.originalname,
+      url: `/api/portfolio-items/files/${fileId.toString()}`,
+    };
+    removeFile(optimizedPath);
     removeFile(req.file.path);
   }
 
@@ -92,10 +110,40 @@ const deletePortfolioItem = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  if (item.image) removeFile(item.image);
+  if (item.image?.fileId) {
+    await deleteImageFromGridFS(item.image.fileId);
+  }
   await item.deleteOne();
 
   res.status(200).json({ success: true, message: 'Portfolio item deleted successfully' });
+});
+
+const getPortfolioFile = asyncHandler(async (req, res) => {
+  if (!req.params.id) {
+    const error = new Error('File id is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!mongoose.connection.db) {
+    const error = new Error('Database connection is not available');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const bucket = new GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+  const fileId = req.params.id;
+
+  try {
+    const downloadStream = bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+    res.set('Content-Type', 'image/jpeg');
+    downloadStream.on('error', () => {
+      res.status(404).json({ success: false, message: 'File not found' });
+    });
+    downloadStream.pipe(res);
+  } catch (error) {
+    res.status(400).json({ success: false, message: 'Invalid file id' });
+  }
 });
 
 module.exports = {
@@ -104,5 +152,6 @@ module.exports = {
   getPortfolioItemById,
   updatePortfolioItem,
   deletePortfolioItem,
+  getPortfolioFile,
   upload,
 };

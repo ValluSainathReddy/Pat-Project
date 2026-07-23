@@ -22,8 +22,8 @@ const portfolioItemSchema = new mongoose.Schema(
     },
     tags: [{ type: String, trim: true }],
     image: {
-      type: String,
-      default: '',
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     link: {
       type: String,
