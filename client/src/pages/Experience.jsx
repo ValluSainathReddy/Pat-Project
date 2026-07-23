@@ -1,6 +1,7 @@
 import { PageShell } from '../components/templates/PageShell';
 import { SectionTitle } from '../components/atoms/SectionTitle';
 import { Timeline } from '../components/organisms/Timeline';
+import { ExperienceCards } from '../components/organisms/ExperienceCards';
 import { experiences } from '../data/content';
 
 export default function Experience() {
@@ -8,6 +9,7 @@ export default function Experience() {
     <PageShell title="Experience">
       <SectionTitle eyebrow="Experience" title="A track record shaped by high-impact product work." description="Focused on leadership, craft, and world-class execution." />
       <Timeline items={experiences} />
+      <ExperienceCards items={experiences} />
     </PageShell>
   );
 }
